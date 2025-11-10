@@ -28,7 +28,7 @@ A Swift package for communicating with Phomemo T02 thermal printers via Bluetoot
 **Via Package.swift:**
 ```swift
 dependencies: [
-    .package(url: "https://github.com/jpurnell/T02Protocol", from: "1.0.0")
+    .package(url: "https://github.com/jpurnell/T02Protocol", from: "0.0.1")
 ]
 ```
 
