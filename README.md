@@ -1,327 +1,183 @@
-# T02Protocol Swift Package
+# T02Protocol
 
-Platform-independent Swift implementation of the Phomemo T02 thermal printer protocol.
+A Swift package for communicating with Phomemo T02 thermal printers via Bluetooth Low Energy.
 
-## 🎉 **NEW**: Direct BLE Printing on macOS!
-
-You can now print directly to your T02 printer from macOS using Bluetooth Low Energy!
-
-**📖 [See Quick Start Guide](../../QUICK_START_T02.md) for step-by-step instructions**
-
-```bash
-# Simple printing
-./t02-print my_image.png
-
-# Or use the tool directly
-swift run T02PrintTool bt my_image.png
-```
+[![Swift Version](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Platforms](https://img.shields.io/badge/Platforms-macOS%2013+%20|%20iOS%2016+-blue.svg)](https://developer.apple.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## Features
 
-- ✅ Modern Swift 5.9+ with Swift Testing
-- ✅ Cross-platform (macOS 13+, iOS 16+)
-- ✅ Complete T02 protocol implementation
-- ✅ **BLE printing via CoreBluetooth** (macOS)
-- ✅ Image conversion and processing
-- ✅ Type-safe API with enums
-- ✅ Comprehensive test suite
-- ✅ Byte-for-byte compatible with Python reference implementation
-- ✅ Command-line tool for testing and printing
+- ✅ **Complete T02 Protocol Implementation** - ESC/POS command generation
+- ✅ **Bluetooth Low Energy Support** - CoreBluetooth integration for macOS/iOS
+- ✅ **Automatic Image Processing** - Converts any image to T02 format
+- ✅ **Type-Safe API** - Swift enums for commands and settings
+- ✅ **Cross-Platform** - Works on macOS 13+ and iOS 16+
+- ✅ **Comprehensive Tests** - Full test suite with Swift Testing
+- ✅ **Command-Line Tool** - Included for testing and standalone use
 
-## Requirements
+## Quick Start
 
-- Swift 5.9+
-- Xcode 15+ (for Swift Testing)
-- macOS 13+ or iOS 16+
+### Add to Your Project
 
-## Installation
+**Via Xcode:**
+1. File → Add Package Dependencies...
+2. Enter: `https://github.com/jpurnell/T02Protocol`
+3. Select version and add to target
 
-### Swift Package Manager
-
-Add to your `Package.swift`:
-
+**Via Package.swift:**
 ```swift
 dependencies: [
     .package(url: "https://github.com/jpurnell/T02Protocol", from: "1.0.0")
 ]
 ```
 
-Or add via Xcode: File → Add Package Dependencies...
+### Basic Usage
 
-### Local Development
+```swift
+import T02Protocol
+import UIKit
 
-```bash
-cd shared/swift
-swift build
-swift test
+// Create protocol instance
+let protocol = T02Protocol()
+
+// Load your image
+let image = UIImage(named: "label")!
+
+// Generate print data
+let printData = try protocol.generatePrintData(from: image, feedLines: 4)
+
+// Send to printer via Bluetooth
+yourBluetoothManager.send(data: printData)
 ```
 
-## Quick Start: Printing to T02
+## Command-Line Tool
 
-### Easy Mode (Recommended)
-
-Use the helper script:
-
-```bash
-./t02-print image.png
-```
-
-The script will:
-1. Remind you to power cycle the printer
-2. Wait for confirmation
-3. Print your image
-
-### Direct Tool Usage
-
-For more control, use the tool directly:
+The package includes a ready-to-use printing tool:
 
 ```bash
 # Print an image
 swift run T02PrintTool bt image.png
 
-# Print with custom feed
-swift run T02PrintTool bt image.png 6
-
-# Create a test image
+# Create test image
 swift run T02PrintTool create test.png
 
 # Debug protocol output
 swift run T02PrintTool debug image.png
 ```
 
-**Important**: The T02 must be freshly powered on (BLE advertising) to connect.
+**Note**: Printer must be powered on within last 30 seconds (BLE advertising period).
 
-📖 **Full instructions**: See [QUICK_START_T02.md](../../QUICK_START_T02.md)
+## API Overview
 
-## Library Usage
-
-### Basic Usage
-
-```swift
-import T02Protocol
-
-#if canImport(UIKit)
-import UIKit
-
-let protocol = T02Protocol()
-
-// Load an image
-let image = UIImage(named: "label")!
-
-// Generate print data
-let printData = try protocol.generatePrintData(from: image, feedLines: 4)
-
-// Send to printer (via CoreBluetooth or USB)
-bluetoothManager.send(data: printData)
-#endif
-```
-
-### Custom Feed Lines
-
-```swift
-// Use custom paper feed
-let printData = try protocol.generatePrintData(from: image, feedLines: 10)
-```
-
-### Manual Command Generation
+### Protocol Generation
 
 ```swift
 let protocol = T02Protocol()
 
-// Individual commands
+// Complete print job
+let data = try protocol.generatePrintData(from: image, feedLines: 4)
+
+// Custom feed lines (0-255)
+let data = try protocol.generatePrintData(from: image, feedLines: 10)
+```
+
+### Individual Commands
+
+```swift
+// Initialize printer
 let initCmd = protocol.cmdInitPrinter()
-let justifyCmd = protocol.cmdSetJustification(.center)
+
+// Set alignment
+let centerCmd = protocol.cmdSetJustification(.center)
+let leftCmd = protocol.cmdSetJustification(.left)
+let rightCmd = protocol.cmdSetJustification(.right)
+
+// Feed paper
 let feedCmd = try protocol.cmdFeedLines(4)
-let rasterHeader = protocol.cmdRasterHeader(widthBytes: 48, lines: 100, mode: .normal)
 
-// Combine commands
-var data = Data()
-data.append(initCmd)
-data.append(justifyCmd)
-// ... add image data ...
-data.append(feedCmd)
+// Raster image header
+let header = protocol.cmdRasterHeader(
+    widthBytes: 48,
+    lines: 200,
+    mode: .normal
+)
 ```
 
-## API Reference
-
-### T02Protocol
-
-#### Constants
-```swift
-static let widthDots: Int        // 384 (50mm at 203 DPI)
-static let widthBytes: Int       // 48 (384 / 8)
-static let dpi: Int              // 203
-static let maxLinesPerBlock: Int // 255 (protocol limit)
-static let defaultFeedLines: Int // 4 (T02 default)
-```
-
-#### Methods
-
-**`init()`**
-Create a new protocol instance.
-
-**`convertImage(_ image: PlatformImage) throws -> CGImage`**
-Convert platform image to T02-compatible format (384px wide, 1-bit monochrome).
-
-**`generatePrintData(from image: PlatformImage, feedLines: Int?) throws -> Data`**
-Generate complete print data stream from image.
-
-**`cmdInitPrinter() -> Data`**
-Generate ESC @ initialization command.
-
-**`cmdSetJustification(_ position: Justification) -> Data`**
-Generate ESC a command.
-
-**`cmdFeedLines(_ lines: Int) throws -> Data`**
-Generate ESC d command to feed paper.
-
-**`cmdRasterHeader(widthBytes: Int, lines: Int, mode: PrintMode) -> Data`**
-Generate GS v 0 raster image header.
-
-#### Enums
-
-**`Justification`**
-- `.left` - Left align
-- `.center` - Center align
-- `.right` - Right align
-
-**`PrintMode`**
-- `.normal` - Standard printing
-- `.doubleWidth` - 2x width
-- `.doubleHeight` - 2x height
-- `.quadruple` - 4x size
-
-## Testing
-
-This package uses **Swift Testing** (not XCTest) for a modern testing experience.
-
-### Run All Tests
-
-```bash
-swift test
-```
-
-### Run Specific Tests
-
-```bash
-# Run a specific suite
-swift test --filter T02ProtocolConstantsTests
-
-# Run a specific test
-swift test --filter "printerWidthDots"
-
-# Run integration tests only
-swift test --filter .integration
-```
-
-### Test Structure
-
-```
-Tests/
-└── T02ProtocolTests/
-    ├── T02ProtocolTests.swift   # Main test suite
-    ├── Fixtures/                # Test images
-    │   ├── solid_black.png
-    │   ├── solid_white.png
-    │   ├── checkerboard.png
-    │   ├── single_line.png
-    │   ├── vertical_stripes.png
-    │   └── large_image.png
-    └── GenerateFixtures.swift   # Fixture generator
-```
-
-### Test Coverage
-
-- **Constants**: 5 tests
-- **Commands**: 9 tests
-- **Image Conversion**: 6 tests
-- **Full Protocol**: 3 integration tests
-- **Edge Cases**: 4 tests
-
-## Protocol Details
-
-### ESC/POS Command Set
-
-```
-ESC @ (0x1b 0x40)            - Initialize printer
-ESC a n (0x1b 0x61 n)        - Set justification (0/1/2)
-ESC d n (0x1b 0x64 n)        - Feed n lines
-GS v 0 (0x1d 0x76 0x30 0x00) - Raster image
-```
-
-### Image Processing Pipeline
-
-```
-Input Image (any format/size)
-    ↓
-Resize to 384px wide (maintain aspect ratio)
-    ↓
-Convert to grayscale
-    ↓
-Invert colors (thermal printer requirement)
-    ↓
-Convert to 1-bit monochrome
-    ↓
-Pack to bytes (48 bytes per line)
-    ↓
-Split into 255-line blocks
-    ↓
-Generate protocol commands
-    ↓
-Output: Complete print data
-```
-
-### Protocol Structure
-
-```
-Header:
-  ESC @ (init)
-  ESC a 1 (center justify)
-
-Body (repeat for each block):
-  GS v 0 (raster header)
-    - mode: 0 (normal)
-    - width: 48 bytes (384 dots)
-    - lines: 1-255
-  [bitmap data: 48 × lines bytes]
-
-Footer:
-  ESC d N (feed N lines)
-```
-
-## Example: iOS Printing App
+### Image Conversion
 
 ```swift
-import SwiftUI
+// Convert image to T02 format (384px wide, 1-bit monochrome)
+let converted = try protocol.convertImage(yourImage)
+```
+
+## Constants
+
+```swift
+T02Protocol.widthDots        // 384 (50mm at 203 DPI)
+T02Protocol.widthBytes       // 48 (384 / 8)
+T02Protocol.dpi              // 203
+T02Protocol.maxLinesPerBlock // 255 (protocol limit)
+T02Protocol.defaultFeedLines // 4
+```
+
+## Enums
+
+### Justification
+```swift
+enum Justification {
+    case left
+    case center
+    case right
+}
+```
+
+### PrintMode
+```swift
+enum PrintMode {
+    case normal        // 1x size
+    case doubleWidth   // 2x width
+    case doubleHeight  // 2x height
+    case quadruple     // 4x size
+}
+```
+
+## Complete Examples
+
+### macOS App
+
+```swift
 import T02Protocol
 import CoreBluetooth
+import AppKit
 
-struct ContentView: View {
-    @StateObject var bluetoothManager = T02BluetoothManager()
-    @State var selectedImage: UIImage?
+class PrinterManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
+    let protocol = T02Protocol()
+    var centralManager: CBCentralManager!
 
-    var body: some View {
-        VStack {
-            if let image = selectedImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
+    func print(image: NSImage) {
+        // Generate print data
+        let printData = try! protocol.generatePrintData(from: image)
 
-                Button("Print to T02") {
-                    printImage(image)
-                }
-            } else {
-                Text("Select an image to print")
-            }
-        }
+        // Connect and send via CoreBluetooth
+        // ... BLE implementation ...
     }
+}
+```
 
-    func printImage(_ image: UIImage) {
-        let protocol = T02Protocol()
+### iOS App
 
+```swift
+import T02Protocol
+import UIKit
+
+class PhotoPrinter {
+    let protocol = T02Protocol()
+
+    func print(photo: UIImage) {
         do {
-            let printData = try protocol.generatePrintData(from: image, feedLines: 4)
-            bluetoothManager.send(data: printData)
+            let printData = try protocol.generatePrintData(from: photo, feedLines: 4)
+            sendViaBluetooth(printData)
         } catch {
             print("Print failed: \(error)")
         }
@@ -329,84 +185,158 @@ struct ContentView: View {
 }
 ```
 
-## Platform Support
+### SwiftUI Integration
 
-### macOS
-- CoreGraphics for image processing
-- AppKit (NSImage) for image handling
-- IOBluetooth for printer communication
+```swift
+import SwiftUI
+import T02Protocol
 
-### iOS/iPadOS
-- CoreGraphics for image processing
-- UIKit (UIImage) for image handling
-- CoreBluetooth for printer communication
+struct PrinterView: View {
+    @State private var image: UIImage?
+    let protocol = T02Protocol()
 
-## Development
+    var body: some View {
+        VStack {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
 
-### Test-Driven Development
+                Button("Print") {
+                    printImage(image)
+                }
+            }
+        }
+    }
 
-This package was developed using TDD:
-
-1. ✅ Tests written first using Swift Testing
-2. ⏳ Implementation driven by tests
-3. ⏳ Refactor while keeping tests green
-
-### Current Status
-
-```bash
-$ swift test
-...
-✗ Tests not yet implemented (TDD phase 1 complete)
+    func printImage(_ image: UIImage) {
+        do {
+            let data = try protocol.generatePrintData(from: image)
+            // Send to printer
+        } catch {
+            print("Error: \(error)")
+        }
+    }
+}
 ```
 
-**Next Steps:**
-1. Implement constants
-2. Implement command methods
-3. Implement image conversion
-4. Implement full protocol generation
-5. All tests pass ✓
+## Protocol Details
 
-## Compatibility
+### ESC/POS Commands
 
-- **Swift Version**: 5.9+
-- **Platforms**: macOS 13+, iOS 16+
-- **Testing**: Swift Testing (not XCTest)
-- **Python Compatibility**: Byte-for-byte compatible with reference implementation
+```
+ESC @ (0x1b 0x40)            - Initialize printer
+ESC a n (0x1b 0x61 n)        - Set justification (0=left, 1=center, 2=right)
+ESC d n (0x1b 0x64 n)        - Feed n lines (0-255)
+GS v 0 (0x1d 0x76 0x30)      - Raster bit image
+```
 
-## Related Projects
+### Image Processing Pipeline
 
-- **Python Reference**: `shared/python/t02_protocol.py`
-- **CUPS Driver**: `cups/filter/rastertopm02_t02.py` (Linux)
-- **macOS Backend**: `macos/backend/phomemo_t02.py` (planned)
-- **iOS App**: `ios/T02Print/` (planned)
+```
+Input → Resize to 384px → Grayscale → Invert → 1-bit → Pack bytes → Protocol
+```
 
-## License
+### Data Structure
 
-GNU General Public License v3.0 - See LICENSE file
+```
+[Header]
+  ESC @ (init)
+  ESC a 1 (center)
+
+[Body - repeated for blocks]
+  GS v 0 (raster header)
+    - width: 48 bytes
+    - lines: 1-255
+  [bitmap data]
+
+[Footer]
+  ESC d N (feed)
+```
+
+## Testing
+
+```bash
+# Run all tests
+swift test
+
+# Run specific test
+swift test --filter T02ProtocolTests
+
+# With verbose output
+swift test --verbose
+```
+
+## Requirements
+
+- **Swift**: 5.9 or later
+- **macOS**: 13.0 (Ventura) or later
+- **iOS**: 16.0 or later
+- **Xcode**: 15.0 or later (for development)
+
+## Hardware
+
+- **Printer**: Phomemo T02
+- **Connection**: Bluetooth Low Energy (BLE)
+- **Paper Width**: 50mm
+- **Resolution**: 203 DPI
+- **Print Width**: 384 dots (48 bytes)
+
+## Bluetooth Implementation
+
+This package provides the protocol layer. For complete BLE printing:
+
+1. **Scan** for devices named "T02"
+2. **Connect** using CoreBluetooth
+3. **Discover** services and writable characteristics
+4. **Generate** print data with this package
+5. **Send** in small chunks (20 bytes recommended)
+6. **Wait** 50ms between chunks
+
+See `T02PrintTool/CoreBluetoothConnection.swift` for reference implementation.
+
+## Error Handling
+
+```swift
+do {
+    let data = try protocol.generatePrintData(from: image)
+} catch T02Protocol.ProtocolError.imageHeightExceedsMaximum {
+    // Image too tall
+} catch T02Protocol.ProtocolError.invalidFeedLines {
+    // Feed lines out of range
+} catch {
+    // Other errors
+}
+```
 
 ## Contributing
 
-When implementing new features:
-1. Write tests first using Swift Testing `@Test` macro
-2. Run tests to see them fail
-3. Implement feature
-4. Run tests to see them pass
-5. Refactor
+Contributions are welcome! Please:
 
-Ensure byte-for-byte compatibility with Python reference implementation.
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Based on reverse-engineered ESC/POS protocol
+- Python reference implementation compatibility
+- Community contributions and testing
+
+## Related Projects
+
+- [phomemo-tools](https://github.com/vivier/phomemo-tools) - Linux CUPS drivers
+- Original protocol research and implementation
 
 ## Support
 
-- **Printer**: Phomemo T02 only
-- **Width**: 50mm (384 dots at 203 DPI)
-- **Connection**: Bluetooth (device name: "T02")
-
-For M02/M110/M220 support, see other protocol implementations.
-
-## Changelog
-
-### 1.0.0 (In Development)
-- Initial Swift port
-- Swift Testing test suite
-- TDD implementation in progress
-- Cross-platform support (macOS/iOS)
+- **Documentation**: See inline code documentation
+- **Examples**: Check `INTEGRATION_EXAMPLE.md`
+- **Issues**: GitHub issue tracker
+- **Discussions**: GitHub discussions
